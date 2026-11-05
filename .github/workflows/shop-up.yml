@@ -1,0 +1,22 @@
+# Outside check for motionlifeshop.com: catches the case the VPS's own minute check can't (the whole server is dead).
+# Every 5 min (GitHub may run it a few minutes late). A failed run = GitHub emails the repo owner.
+name: shop is up
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: motionlifeshop.com answers
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -A 'motionlife-uptime (github actions)' https://motionlifeshop.com/ready || true)
+            if [ "$code" = 200 ]; then echo "up (try $i)"; exit 0; fi
+            echo "try $i: got ${code:-no answer}"; sleep 30
+          done
+          echo "::error::motionlifeshop.com is DOWN from the outside (3 tries over ~1.5 min). On the VPS: sudo vps status"
+          exit 1
